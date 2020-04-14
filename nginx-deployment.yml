@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-jh-config
+data:
+  mspace.conf: |-
+    server {
+        listen 8080;
+        server_name localhost;
+        root /usr/share/nginx/html/web;
+        index index.html index.php;
+        try_files $uri $uri/ /index.php?$args;
+        location ~ \.php$ {
+            root /var/www/html/web;
+            fastcgi_pass jh-php:9000;
+            fastcgi_index  index.php;
+            fastcgi_split_path_info ^(.+\.php)(.*)$;     #增加这一句
+            fastcgi_param PATH_INFO $fastcgi_path_info;#增加这一句
+            fastcgi_param  SCRIPT_FILENAME   $document_root$fastcgi_script_name;
+            include        fastcgi_params;
+            fastcgi_connect_timeout 60s;
+            fastcgi_read_timeout 300s;
+            fastcgi_send_timeout 300s;
+        }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jh-nginx
+  labels:
+    app: jinghang
+spec:
+  ports:
+    - port: 8080
+  selector:
+    app: jh-nginx
+    tier: frontend
+  type: NodePort
+  sessionAffinity: ClientIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jh-nginx
+  labels:
+    app: jinghang
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: jh-nginx
+      tier: frontend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: jh-nginx
+        tier: frontend
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        ports:
+        - containerPort: 8080
+          name: jinghang
+        volumeMounts:
+        - name: jh-persistent-storage
+          mountPath: /usr/share/nginx/html
+        - name: config
+          mountPath: /etc/nginx/conf.d/mspace.conf
+          subPath: mspace.conf
+      imagePullSecrets:
+        - name: registrypullsecret
+      volumes:
+      - name: jh-persistent-storage
+        persistentVolumeClaim:
+          claimName: jh-pvc
+      - name: config
+        configMap:
+          name: nginx-jh-config

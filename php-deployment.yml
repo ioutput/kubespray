@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: jh-php
+  labels:
+    app: jinghang
+spec:
+  ports:
+    - port: 9000
+  selector:
+    app: jh-php
+    tier: frontend
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jh-pvc
+  labels:
+    app: jinghang
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1 # for versions before 1.8.0 use apps/v1beta1
+kind: Deployment
+metadata:
+  name: jh-php
+  labels:
+    app: jinghang
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: jh-php
+      tier: frontend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: jh-php
+        tier: frontend
+    spec:
+      containers:
+      - name: php
+        image: php:7.3-fpm
+        ports:
+        - containerPort: 9000
+          name: php
+        volumeMounts:
+#用于php解析的目录
+        - name: jh-persistent-storage
+          mountPath: /var/www/html
+##拉取镜像时的用户认证,没有的时候注释掉这2行
+      #imagePullSecrets:
+      #  - name: registrypullsecret
+      volumes:
+      - name: jh-persistent-storage
+        persistentVolumeClaim:
+          claimName: jh-pvc
