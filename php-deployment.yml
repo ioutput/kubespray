@@ -46,7 +46,7 @@ spec:
     spec:
       containers:
       - name: php
-        image: php:7.3-fpm
+        image: coolin521/php74:v1
         ports:
         - containerPort: 9000
           name: php
